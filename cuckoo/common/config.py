@@ -578,7 +578,7 @@ class Config(object):
                 "enabled": Boolean(True),
                 "whitelist_dns": Boolean(False),
                 "allowed_dns": String(),
-				"filter_tshark": String(),
+		"filter_tshark": String(),
             },
             "procmemory": {
                 "enabled": Boolean(True),
