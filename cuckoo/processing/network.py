@@ -18,6 +18,7 @@ import socket
 import struct
 import tempfile
 import urlparse
+import subprocess
 
 from cuckoo.common.abstracts import Processing
 from cuckoo.common.config import config
@@ -863,6 +864,33 @@ class NetworkAnalysis(Processing):
             log.error("The PCAP file at path \"%s\" is empty." % self.pcap_path)
             return results
 
+        log.debug("keys: {0} , values : {1}".format(self.options.keys(),self.options.values()))
+
+        filter_shark = self.options.get("filter_tshark")
+
+        if filter_shark :
+            log.debug("The filter of tshark is {0}.".format(filter_shark))
+            if not self.is_tool("tshark"):
+                log.error("The tshark is not present on your system. Please install it !")
+            else:
+                log.debug("Run tshark to filter pcap")
+                filtered_path = self.pcap_path.replace("dump.", "dump_filtered.")
+                filtered_1_path = self.pcap_path.replace("dump.", "dump_filtered_1.")
+
+                cmd = "tshark -F pcap -r " + self.pcap_path +" -Y \""+ filter_shark +"\" -w " + filtered_path
+                log.debug("{0}".format(cmd))
+                p = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
+                output,err = p.communicate()
+
+                if err:
+                    log.error("There is an error when filtering the pcap : %s from %s" % (err,self.pcap_path))
+                    return results
+
+                os.renames(self.pcap_path,filtered_1_path)
+                os.renames(filtered_path, self.pcap_path)
+        else:
+            log.debug("The Tshark filter is not present.")
+
         # PCAP file hash.
         results["pcap_sha256"] = File(self.pcap_path).get_sha256()
 
@@ -902,6 +930,13 @@ class NetworkAnalysis(Processing):
             master_secret = master_secret.decode("hex")
             tlsmaster[client_random, server_random] = master_secret
         return tlsmaster
+
+    def is_tool(self,name):
+        """ Check whether 'name' is on PATH """
+
+        from distutils.spawn import find_executable
+
+        return find_executable(name) is not None
 
 def iplayer_from_raw(raw, linktype=1):
     """Converts a raw packet to a dpkt packet regarding of link type.
